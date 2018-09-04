@@ -1,5 +1,7 @@
-from goto import with_goto
 import numpy as np
+
+
+FACT = 180./np.pi
 
 
 def geodetic2geocentric(ct, st, alt):
@@ -141,17 +143,15 @@ def igrf12syn(isv, date, itype, alt, colat, elong):
 
     fn, gn = n, n-1
     for k in range(2, int(kmx)+1):
-        if (n < m):
+        if n < m:
             m = 0
             n = n + 1
             rr = rr * ratio
             fn = n
             gn = n - 1
-        # label .a4
 
         fm = m
-        if (m != n):
-            # goto .a5
+        if m != n:
             gmm = m * m
             one = np.sqrt(fn * fn - gmm)
             two = np.sqrt(gn * gn - gmm) / one
@@ -195,9 +195,6 @@ def igrf12syn(isv, date, itype, alt, colat, elong):
     f = np.sqrt(x * x + y * y + z * z)
     #
     return x, y, z, f
-    #
-    #     error return if date out of bounds
-    #
 
 
 def loadCoeffs(filename):
@@ -220,7 +217,7 @@ def loadCoeffs(filename):
                 for p in gh2arr[i]:
                     gh.append(p)
         gh.append(0)
-        return np.array(gh)
+        return gh
 
 
 if __name__ == '__main__':
@@ -230,7 +227,7 @@ if __name__ == '__main__':
     CLT = 40
     XLN = 116
     print(
-    '''
+        '''
 (0.0, 0.0, 0.0, 1.0)
 (20399.990998293099, -3198.5866954616949, 54221.084707843518, 58019.967394630323)
 values for 2023.0 will be computed but may be of reduced accuracy
@@ -238,7 +235,7 @@ values for 2023.0 will be computed but may be of reduced accuracy
 (0.0, 0.0, 0.0, 1.0)
 (18549.83107873689, -2384.5163864780948, 46815.050096153231, 50412.608214140164)
 '''
-          )
+    )
     print(igrf12syn(0, 1800.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 2017.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 2023.0, ITYPE, ALT, CLT, XLN))
