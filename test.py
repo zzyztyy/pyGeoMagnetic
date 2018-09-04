@@ -2,7 +2,6 @@ from goto import with_goto
 import numpy as np
 
 
-@with_goto
 def igrf12syn(isv, date, itype, alt, colat, elong):
     """
      This is a synthesis routine for the 12th generation IGRF as agreed
@@ -50,61 +49,52 @@ def igrf12syn(isv, date, itype, alt, colat, elong):
     # set initial values
     x, y, z = 0., 0., 0.
 
-    if (date<1900.0 or date > 2025.0):
+    if date < 1900.0 or date > 2025.0:
         f = 1.0
-        print('This subroutine will not work with a date of ' + str(date))
-        print('Date must be in the range 1900.0 <= date <= 20205.0')
-        print('On return f = 1.0, x = y = z = 0')
+        # print('This subroutine will not work with a date of ' + str(date))
+        # print('Date must be in the range 1900.0 <= date <= 20205.0')
+        # print('On return f = 1.0, x = y = z = 0')
         return x, y, z, f
-    if (date > 2020.0):
-        # not adapt for the model but can calculate
-        print('This version of the IGRF is intended for use up to 2020.0.')
-        print('values for ' + str(date) + ' will be computed but may be of reduced accuracy')
-    if (date >= 2015.0):
-        goto .a1
-    t = 0.2 * (date - 1900.0)
-    ll = int(t)
-    t = t - ll
-    #
-    #     SH models before 1995.0 are only to degree 10
-    #
-    if (date<1995.0):
-        nmx = 10
-        nc = nmx * (nmx + 2)
-        ll = nc * ll
-        kmx = (nmx + 1) * (nmx + 2) / 2
-    else:
+    elif date >= 2015.0:
+        if date > 2020.0:
+            # not adapt for the model but can calculate
+            # print('This version of the IGRF is intended for use up to 2020.0.')
+            print('values for ' + str(date) + ' will be computed but may be of reduced accuracy')
+        # goto .a1
+        t = date - 2015.0
+        tc = 1.0
+        if isv == 1:
+            t = 1.0
+            tc = 0.0
+        #     pointer for last coefficient in pen-ultimate set of MF coefficients...
+        ll = 3060
         nmx = 13
         nc = nmx * (nmx + 2)
-        ll = round(0.2 * (date - 1995.0))
-        #
-        #     19 is the number of SH models that extend to degree 10
-        #
-        ll = 120 * 19 + nc * ll
         kmx = (nmx + 1) * (nmx + 2) / 2
-    
-    tc = 1.0 - t
-    if (isv == 1):
-        tc = -0.2
-        t = 0.2
-    
-    goto .a2
-    #
-    label .a1
-    t = date - 2015.0
-    tc = 1.0
-    if (isv == 1):
-        t = 1.0
-        tc = 0.0
-    
-    #
-    #     pointer for last coefficient in pen-ultimate set of MF coefficients...
-    #
-    ll = 3060
-    nmx = 13
-    nc = nmx * (nmx + 2)
-    kmx = (nmx + 1) * (nmx + 2) / 2
-    label .a2
+    else:
+        t = 0.2 * (date - 1900.0)
+        ll = int(t)
+        t = t - ll
+        #     SH models before 1995.0 are only to degree 10
+        if date < 1995.0:
+            nmx = 10
+            nc = nmx * (nmx + 2)
+            ll = nc * ll
+            kmx = (nmx + 1) * (nmx + 2) / 2
+        else:
+            nmx = 13
+            nc = nmx * (nmx + 2)
+            ll = round(0.2 * (date - 1995.0))
+            #
+            #     19 is the number of SH models that extend to degree 10
+            #
+            ll = 120 * 19 + nc * ll
+            kmx = (nmx + 1) * (nmx + 2) / 2
+        tc = 1.0 - t
+        if isv == 1:
+            tc = -0.2
+            t = 0.2
+
     r = alt
     one = colat * 0.017453292
     ct = np.cos(one)
@@ -117,26 +107,21 @@ def igrf12syn(isv, date, itype, alt, colat, elong):
     l = 1
     m = 1
     n = 0
-    if (itype == 2):
-        goto .a3
-    #
-    #     conversion from geodetic to geocentric coordinates
-    #     (using the WGS84 spheroid)
-    #
-    a2 = 40680631.6
-    b2 = 40408296.0
-    one = a2 * st * st
-    two = b2 * ct * ct
-    three = one + two
-    rho = np.sqrt(three)
-    r = np.sqrt(alt * (alt + 2.0 * rho) + (a2 * one + b2 * two) / three)
-    cd = (alt + rho) / r
-    sd = (a2 - b2) / rho * ct * st / r
-    one = ct
-    ct = ct * cd - st * sd
-    st = st * cd + one * sd
-    #
-    label .a3
+    if itype != 2:
+        #     conversion from geodetic to geocentric coordinates
+        #     (using the WGS84 spheroid)
+        a2 = 40680631.6
+        b2 = 40408296.0
+        one = a2 * st * st
+        two = b2 * ct * ct
+        three = one + two
+        rho = np.sqrt(three)
+        r = np.sqrt(alt * (alt + 2.0 * rho) + (a2 * one + b2 * two) / three)
+        cd = (alt + rho) / r
+        sd = (a2 - b2) / rho * ct * st / r
+        one = ct
+        ct = ct * cd - st * sd
+        st = st * cd + one * sd
     ratio = 6371.2 / r
     rr = ratio * ratio
     #
@@ -237,5 +222,18 @@ if __name__ == '__main__':
     ALT = 30
     CLT = 40
     XLN = 116
-    print('(20822.726128102269, -3036.719453701714, 54035.42981690164, 57988.233840527915)')
-    print(igrf12syn(0, DATE, ITYPE, ALT, CLT, XLN))
+    print(
+    '''
+(0.0, 0.0, 0.0, 1.0)
+(20399.990998293099, -3198.5866954616949, 54221.084707843518, 58019.967394630323)
+values for 2023.0 will be computed but may be of reduced accuracy
+(20141.261478263983, -3271.0339761667424, 54391.196537362361, 58092.790757330782)
+(0.0, 0.0, 0.0, 1.0)
+(20822.726128102269, -3036.719453701714, 54035.42981690164, 57988.233840527915)
+'''
+          )
+    print(igrf12syn(0, 1800.0, ITYPE, ALT, CLT, XLN))
+    print(igrf12syn(0, 2017.0, ITYPE, ALT, CLT, XLN))
+    print(igrf12syn(0, 2023.0, ITYPE, ALT, CLT, XLN))
+    print(igrf12syn(0, 2046.0, ITYPE, ALT, CLT, XLN))
+    print(igrf12syn(0, 2006.0, ITYPE, ALT, CLT, XLN))
