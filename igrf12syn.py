@@ -1,4 +1,5 @@
 import numpy as np
+import test
 
 FACT = 180./np.pi
 
@@ -225,13 +226,13 @@ if __name__ == '__main__':
     CLT = 50
     XLN = 116
 
-    print(igrf12synOld(0, 1800.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 1800.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 1800.0, ITYPE, ALT, CLT, XLN))
-    print(igrf12synOld(0, 2017.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2017.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 2017.0, ITYPE, ALT, CLT, XLN))
-    print(igrf12synOld(0, 2023.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2023.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 2023.0, ITYPE, ALT, CLT, XLN))
-    print(igrf12synOld(0, 2046.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2046.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 2046.0, ITYPE, ALT, CLT, XLN))
-    print(igrf12synOld(0, 2006.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2006.0, ITYPE, ALT, CLT, XLN))
     print(igrf12syn(0, 2006.0, ITYPE, ALT, CLT, XLN))
