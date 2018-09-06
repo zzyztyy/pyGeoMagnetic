@@ -223,16 +223,16 @@ if __name__ == '__main__':
     DATE = 2006.
     ITYPE = 1
     ALT = 300
-    CLT = 50
+    CLT = 80
     XLN = 116
 
-    print(test.igrf12synOld(0, 1800.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 1800.0, ITYPE, ALT, 90-CLT, XLN))
     print(igrf12syn(0, 1800.0, ITYPE, ALT, CLT, XLN))
-    print(test.igrf12synOld(0, 2017.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2017.0, ITYPE, ALT, 90-CLT, XLN))
     print(igrf12syn(0, 2017.0, ITYPE, ALT, CLT, XLN))
-    print(test.igrf12synOld(0, 2023.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2023.0, ITYPE, ALT, 90-CLT, XLN))
     print(igrf12syn(0, 2023.0, ITYPE, ALT, CLT, XLN))
-    print(test.igrf12synOld(0, 2046.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(0, 2046.0, ITYPE, ALT, 90-CLT, XLN))
     print(igrf12syn(0, 2046.0, ITYPE, ALT, CLT, XLN))
-    print(test.igrf12synOld(0, 2006.0, ITYPE, ALT, CLT, XLN))
-    print(igrf12syn(0, 2006.0, ITYPE, ALT, CLT, XLN))
+    print(test.igrf12synOld(1, 2006.0, ITYPE, ALT, 90-CLT, XLN))
+    print(igrf12syn(1, 2006.0, ITYPE, ALT, CLT, XLN))
