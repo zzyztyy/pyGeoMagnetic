@@ -1,5 +1,8 @@
 from goto import with_goto
 import numpy as np
+import igrf12syn
+
+FACT = 180./np.pi
 
 
 @with_goto
@@ -218,7 +221,7 @@ def RDUS(D, E, F):
     return np.sqrt(D**2+E**2+F**2)
 
 
-def itrace(YAPX, BX, BY, BZ, BB, SGN, IAPX):
+def itrace(YAPX, Y, BX, BY, BZ, BB, SGN, IAPX, DS):
     """
     Follow a geomagnetic field line until passing its apex
 
@@ -268,10 +271,10 @@ def itrace(YAPX, BX, BY, BZ, BB, SGN, IAPX):
     # YAPX = np.array([[0.]*3]*3)
     # BX, BY, BZ, BB = 0., 0., 0., 0.
     NSTP = 0
-    Y = [0]*3
+    # Y = [0]*3
     YOLD = [0]*3
     # SGN = 1
-    DS = 1
+    # DS = 1
     YP = np.array([[0]*4]*3)
 
     # IAPX = 1
@@ -337,6 +340,88 @@ def itrace(YAPX, BX, BY, BZ, BB, SGN, IAPX):
     return IAPX
 
 
+def getCoeffs(gh, date):
+    """
+    :param gh: list from loadCoeffs
+    :param date: float
+    :return: list: g, list: h
+    """
+    if date < 1900.0 or date > 2025.0:
+        print('This subroutine will not work with a date of ' + str(date))
+        print('Date must be in the range 1900.0 <= date <= 2025.0')
+        print('On return [], []')
+        return [], []
+    elif date >= 2015.0:
+        if date > 2020.0:
+            # not adapt for the model but can calculate
+            print('This version of the IGRF is intended for use up to 2020.0.')
+            print('values for ' + str(date) + ' will be computed but may be of reduced accuracy')
+        t = date - 2015.0
+        tc = 1.0
+        #     pointer for last coefficient in pen-ultimate set of MF coefficients...
+        ll = 3060
+        nmx = 13
+        nc = nmx * (nmx + 2)
+    else:
+        t = 0.2 * (date - 1900.0)
+        ll = int(t)
+        t = t - ll
+        #     SH models before 1995.0 are only to degree 10
+        if date < 1995.0:
+            nmx = 10
+            nc = nmx * (nmx + 2)
+            ll = nc * ll
+        else:
+            nmx = 13
+            nc = nmx * (nmx + 2)
+            ll = round(0.2 * (date - 1995.0))
+            #     19 is the number of SH models that extend to degree 10
+            ll = 120 * 19 + nc * ll
+        tc = 1.0 - t
+
+    g, h = [], []
+    temp = ll-1
+    for n in range(nmx+1):
+        g.append([])
+        h.append([])
+        if n == 0:
+            g[0].append(None)
+        for m in range(n+1):
+            if m != 0:
+                g[n].append(tc*gh[temp] + t*gh[temp+nc])
+                h[n].append(tc*gh[temp+1] + t*gh[temp+nc+1])
+                temp += 2
+                # print(n, m, g[n][m], h[n][m])
+            else:
+                g[n].append(tc*gh[temp] + t*gh[temp+nc])
+                h[n].append(None)
+                temp += 1
+                # print(n, m, g[n][m], h[n][m])
+    return g, h
+
+
+def northPole(gh, date):
+    g, h = getCoeffs(gh, date)
+    print(g[1][0])
+    colat = np.arccos(g[1][0]/RDUS(g[1][0], g[1][1], h[1][1]))
+    elong = np.arctan2(h[1][1], g[1][1])
+    return colat*FACT-90, elong*FACT-180
+
+
+# def findApex(lat, lon, alt):
+#     date = 2005
+#     R = 6371.2
+#     gh = loadCoeffs('igrf12coeffs.txt')
+#     nlat, nlon = northPole(gh, date)
+#     ctp = np.cos((90-nlat)/FACT)
+#     stp = np.sin((90-nlat)/FACT)
+#     stngml = ctp*np.sin(lat)+stp*np.cos(lat)*np.cos(lon-nlon)
+#     cgml2 = max(1-stngml**2, 0.25)
+#     DS = R*0.06/cgml2-370
+
+
+
+
 def loadCoeffs(filename):
     gh = []
     gh2arr = []
@@ -361,4 +446,5 @@ def loadCoeffs(filename):
 
 
 if __name__ == '__main__':
-    pass
+    gh = loadCoeffs('igrf12coeffs.txt')
+    print(northPole(gh, 2005))
