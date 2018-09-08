@@ -19,7 +19,9 @@ def geodetic2geocentric(ct, st, alt):
     one = ct
     ct = ct * cd - st * sd
     st = st * cd + one * sd
-    return ct, st, cd, sd, r
+    gclat = np.arctan2(st, ct)
+    gclon = np.arctan2(sd, cd)
+    return gclat, gclon, r
 
 
 def igrf12syn(isv, date, itype, alt, lat, elong):
@@ -129,7 +131,9 @@ def igrf12syn(isv, date, itype, alt, lat, elong):
     m = 1
     n = 0
     if itype != 2:
-        ct, st, cd, sd, r = geodetic2geocentric(ct, st, alt)
+        gclat, gclon, r = geodetic2geocentric(ct, st, alt)
+        ct, st = np.cos(gclat), np.sin(gclat)
+        cd, sd = np.cos(gclon), np.sin(gclon)
     ratio = 6371.2 / r
     rr = ratio * ratio
 
