@@ -1,11 +1,12 @@
-import IGRF12
 import numpy as np
+
+import igrf
 
 FACT = 180./np.pi
 
 
 def dipLat(lat, lon, alt, year=2005.):
-    mag = IGRF12.igrf12(lat, lon, alt, year)
+    mag = igrf.igrf12syn(0, year, 1, alt, lat, lon)
     print(mag)
     mlat = np.tan(mag[1]/2/FACT)*FACT
     return mlat
