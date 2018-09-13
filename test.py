@@ -1,6 +1,11 @@
 from goto import with_goto
 import numpy as np
-import igrf12syn
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+import apex
+import igrf
+import dipLat
 
 FACT = 180./np.pi
 
@@ -45,7 +50,7 @@ def igrf12synOld(isv, date, itype, alt, colat, elong):
     """
 
     p, q, cl, sl = [0.] * 105, [0.] * 105, [0.] * 13, [0.] * 13
-    gh = loadCoeffs('igrf12coeffs.txt')
+    gh = igrf.loadCoeffs('igrf12coeffs.txt')
 
     # set initial values
     x, y, z = 0., 0., 0.
@@ -217,234 +222,63 @@ def igrf12synOld(isv, date, itype, alt, colat, elong):
     return x, y, z, f
 
 
-def RDUS(D, E, F):
-    return np.sqrt(D**2+E**2+F**2)
+def testIgrf12():
+    DATE = 2005.
+    ITYPE = 2
+    ALT = 6357.43492487
+    CLT, XLN = 79.6803854769, -71.805
+
+    # print(test.igrf12synOld(0, 1800.0, ITYPE, ALT, 90-CLT, XLN))
+    # print(igrf12syn(0, 1800.0, ITYPE, ALT, CLT, XLN))
+    # print(test.igrf12synOld(0, 2017.0, ITYPE, ALT, 90-CLT, XLN))
+    # print(igrf12syn(0, 2017.0, ITYPE, ALT, CLT, XLN))
+    # print(test.igrf12synOld(0, 2023.0, ITYPE, ALT, 90-CLT, XLN))
+    # print(igrf12syn(0, 2023.0, ITYPE, ALT, CLT, XLN))
+    # print(test.igrf12synOld(0, 2046.0, ITYPE, ALT, 90-CLT, XLN))
+    # print(igrf12syn(0, 2046.0, ITYPE, ALT, CLT, XLN))
+    print(igrf12synOld(0, 2005.0, ITYPE, ALT, 90 - CLT, XLN))
+    print(igrf.igrf12syn(0, 2005.0, ITYPE, ALT, CLT, XLN))
 
 
-def itrace(YAPX, Y, BX, BY, BZ, BB, SGN, IAPX, DS):
-    """
-    Follow a geomagnetic field line until passing its apex
+def sphere(center, radius, ax):
+    # data
+    u = np.linspace(0, 2 * np.pi, 100)
+    v = np.linspace(0, np.pi, 100)
+    x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
+    y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
+    z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
 
-    INPUTS:
-     (all are in common blocks)
-    OUTPUTS:
-     IAPX = 2 (when apex passed) or 1 (not)
-
-    This uses the 4-point Adams formula after initialization.
-    First 7 iterations advance point by 3 steps.
-
-    COMMON BLOCKS:
-     COMMON /APXIN/   YAPX(3,3)
-     COMMON /FLDCOMD/ BX, BY, BZ, BB
-     COMMON /ITRA/    NSTP, Y(3), YOLD(3), SGN, DS
-
-    APXIN has step locations determined in ITRACE:
-     YAPX  = Matrix of cartesian coordinates (loaded columnwise) of the
-             three points about the apex.  Set in subroutine ITRACE.
-
-    FLDCOMD has geomagnetic field at current trace point:
-     BX    = X component (Gauss)
-     BY    = Y component (Gauss)
-     BZ    = Z component (Gauss)
-     BB    = Magnitude   (Gauss)
-
-    ITRA has field line tracing variables determined in LINAPX:
-     NSTP  = Step count.
-     Y     = Array containing current tracing point cartesian coordinates.
-     YOLD  = Array containing previous tracing point cartesian coordinates.
-     SGN   = Determines direction of trace.
-     DS    = Step size (arc length in km).
-
-    REFERENCES:
-     Stassinopoulos E. G. , Mead Gilbert D., X-841-72-17 (1971) GSFC,
-     Greenbelt, Maryland
-    --------------------------------------------------------------------
-    HISTORY:
-    Oct 1973: Initial version completed on the 29th by W. Clark, NOAA ERL
-             Laboratory.
-    Feb 1988: Revised by H. Passi, NCAR.
-    Apr 2004: Replace computed GO TO with if blocks because some compilers
-             are threatening to remove this old feature
-
-    """
-
-    # YAPX = np.array([[0.]*3]*3)
-    # BX, BY, BZ, BB = 0., 0., 0., 0.
-    NSTP = 0
-    # Y = [0]*3
-    YOLD = [0]*3
-    # SGN = 1
-    # DS = 1
-    YP = np.array([[0]*4]*3)
-
-    # IAPX = 1
-    
-    #   Cartesian component magnetic field (partial) derivitives steer the trace
-    YP[0][3] = SGN*BX/BB
-    YP[1][3] = SGN*BY/BB
-    YP[2][3] = SGN*BZ/BB
-    D2 = DS / 2.
-    D6 = DS / 6.
-    D12 = DS / 12.
-    D24 = DS / 24.
-    if NSTP <= 7:
-        for I in range(0, 3):
-            if NSTP == 1:
-                YP[I][0] = YP[I][3]
-                YOLD[I] = Y[I]
-                YAPX[I][0] = Y[I]
-                Y[I] = YOLD[I] + DS*YP[I][0]
-            elif NSTP == 2:
-                YP[I][1] = YP[I][3]
-                Y[I] = YOLD[I] + D2*(YP[I][1]+YP[I][0])
-            elif NSTP == 3:
-                Y[I] = YOLD[I] + D6*(2.*YP[I][3]+YP[I][1]+3.*YP[I][0])
-            elif NSTP == 4:
-                YP[I][1] = YP[I][3]
-                YAPX[I][1] = Y[I]
-                YOLD[I] = Y[I]
-                Y[I] = YOLD[I] + D2*(3.0*YP[I][1]-YP[I][0])
-            elif NSTP == 5:
-                Y[I] = YOLD[I] + D12*(5.*YP[I][3]+8.*YP[I][1]-YP[I][0])
-            elif NSTP == 6:
-                YP[I][2] = YP[I][3]
-                YOLD[I] = Y[I]
-                YAPX[I][2] = Y[I]
-                Y[I] = YOLD[I] + D12*(23.*YP[I][2]-16.*YP[I][1]+5.*YP[I][0])
-            elif NSTP == 7:
-                YAPX[I][0] = YAPX[I][1]
-                YAPX[I][1] = YAPX[I][2]
-                Y[I] = YOLD[I] + D24*(9.*YP[I][3] + 19.*YP[I][2] - 5.*YP[I][1] + YP[I][0])
-                YAPX[I][2] = Y[I]
-
-        if NSTP == 6 or NSTP == 7:        # signal if apex passed
-            RC = RDUS(YAPX[0][2], YAPX[1][2], YAPX[2][2])
-            RP = RDUS(YAPX[0][1], YAPX[1][1], YAPX[2][1])
-            if RC < RP:
-                IAPX = 2
-                return IAPX
-    else:                 # NSTP > 7
-        for I in range(0, 3):
-            YAPX[I][0] = YAPX[I][1]
-            YAPX[I][1] = Y[I]
-            YOLD[I] = Y[I]
-            Y[I] = YOLD[I] + D24*(55.*YP[I][3] - 59.*YP[I][2] + 37.*YP[I][1] - 9.*YP[I][0])
-            YAPX[I][2] = Y[I]
-            for J in range(0, 3):
-                YP[I][J] = YP[I][J+1]
-        RC = RDUS(Y[0], Y[1], Y[2])
-        RP = RDUS(YOLD[0], YOLD[1], YOLD[2])
-        if RC < RP:
-            IAPX = 2
-            return IAPX
-    return IAPX
+    # surface plot
+    ax.plot_surface(x, y, z, rstride=4, cstride=4, color='b')
 
 
-def getCoeffs(gh, date):
-    """
-    :param gh: list from loadCoeffs
-    :param date: float
-    :return: list: g, list: h
-    """
-    if date < 1900.0 or date > 2025.0:
-        print('This subroutine will not work with a date of ' + str(date))
-        print('Date must be in the range 1900.0 <= date <= 2025.0')
-        print('On return [], []')
-        return [], []
-    elif date >= 2015.0:
-        if date > 2020.0:
-            # not adapt for the model but can calculate
-            print('This version of the IGRF is intended for use up to 2020.0.')
-            print('values for ' + str(date) + ' will be computed but may be of reduced accuracy')
-        t = date - 2015.0
-        tc = 1.0
-        #     pointer for last coefficient in pen-ultimate set of MF coefficients...
-        ll = 3060
-        nmx = 13
-        nc = nmx * (nmx + 2)
-    else:
-        t = 0.2 * (date - 1900.0)
-        ll = int(t)
-        t = t - ll
-        #     SH models before 1995.0 are only to degree 10
-        if date < 1995.0:
-            nmx = 10
-            nc = nmx * (nmx + 2)
-            ll = nc * ll
-        else:
-            nmx = 13
-            nc = nmx * (nmx + 2)
-            ll = round(0.2 * (date - 1995.0))
-            #     19 is the number of SH models that extend to degree 10
-            ll = 120 * 19 + nc * ll
-        tc = 1.0 - t
+def draw(trace):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
 
-    g, h = [], []
-    temp = ll-1
-    for n in range(nmx+1):
-        g.append([])
-        h.append([])
-        if n == 0:
-            g[0].append(None)
-        for m in range(n+1):
-            if m != 0:
-                g[n].append(tc*gh[temp] + t*gh[temp+nc])
-                h[n].append(tc*gh[temp+1] + t*gh[temp+nc+1])
-                temp += 2
-                # print(n, m, g[n][m], h[n][m])
-            else:
-                g[n].append(tc*gh[temp] + t*gh[temp+nc])
-                h[n].append(None)
-                temp += 1
-                # print(n, m, g[n][m], h[n][m])
-    return g, h
+    # center and radius
+    center = [0, 0, 0]
+    radius = 6371.2
+    sphere(center, radius, ax)
+    ax.plot([x[0] for x in trace], [x[1] for x in trace], [x[2] for x in trace])
+    ax.set_zlabel('Z')
+    ax.set_ylabel('Y')
+    ax.set_xlabel('X')
+    plt.show()
 
 
-def northPole(gh, date):
-    g, h = getCoeffs(gh, date)
-    print(g[1][0])
-    colat = np.arccos(g[1][0]/RDUS(g[1][0], g[1][1], h[1][1]))
-    elong = np.arctan2(h[1][1], g[1][1])
-    return colat*FACT-90, elong*FACT-180
+def testApex():
+    trace = apex.findApex(20, 0, 0)
+    draw(trace)
 
 
-# def findApex(lat, lon, alt):
-#     date = 2005
-#     R = 6371.2
-#     gh = loadCoeffs('igrf12coeffs.txt')
-#     nlat, nlon = northPole(gh, date)
-#     ctp = np.cos((90-nlat)/FACT)
-#     stp = np.sin((90-nlat)/FACT)
-#     stngml = ctp*np.sin(lat)+stp*np.cos(lat)*np.cos(lon-nlon)
-#     cgml2 = max(1-stngml**2, 0.25)
-#     DS = R*0.06/cgml2-370
-
-
-
-
-def loadCoeffs(filename):
-    gh = []
-    gh2arr = []
-    with open(filename) as f:
-        text = f.readlines()
-        for a in text:
-            if a[:2] == 'g ' or a[:2] == 'h ':
-                b = a.split()[3:]
-                b = [float(x) for x in b]
-                gh2arr.append(b)
-        gh2arr = np.array(gh2arr).transpose()
-        N = len(gh2arr)
-        for i in range(N):
-            if i < 19:
-                for j in range(120):
-                    gh.append(gh2arr[i][j])
-            else:
-                for p in gh2arr[i]:
-                    gh.append(p)
-        gh.append(0)
-        return gh
+def testDipLat():
+    lat = 7.7
+    lon = 116
+    alt = 0
+    year = 2005
+    print(dipLat.dipLat(lat, lon, alt, year))
 
 
 if __name__ == '__main__':
-    gh = loadCoeffs('igrf12coeffs.txt')
-    print(northPole(gh, 2005))
+    testDipLat()
