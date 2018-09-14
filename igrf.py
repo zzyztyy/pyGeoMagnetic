@@ -240,6 +240,11 @@ def getCoeffs(date):
 
 
 def loadCoeffs(filename):
+    """
+    load igrf12 coeffs from file
+    :param filename: file which save coeffs (str)
+    :return: g and h list one by one (list(float))
+    """
     gh = []
     gh2arr = []
     with open(filename) as f:

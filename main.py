@@ -25,6 +25,7 @@ def igrf12(lat, lon, alt=0., year=2005.):
 
 def igrf12sv(lat, lon, alt=0, year=2005):
     """
+         Annual variation
          D is declination (+ve east)
          I is inclination (+ve down)
          H is horizontal intensity

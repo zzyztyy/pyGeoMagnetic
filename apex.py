@@ -1,6 +1,6 @@
 import numpy as np
 
-from coordinate import cartesian2geocentric, geocentric2cartesian, geodetic2geocentric, span
+from coordinate import cartesian2geocentric, geocentric2cartesian, geodetic2geocentric, rotateVector
 from igrf import igrf12syn, getCoeffs
 
 
@@ -12,30 +12,20 @@ def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
     """
     Follow a geomagnetic field line until passing its apex
 
-    INPUTS:
-     (all are in common blocks)
-    OUTPUTS:
-     IAPX = 2 (when apex passed) or 1 (not)
-
     This uses the 4-point Adams formula after initialization.
     First 7 iterations advance point by 3 steps.
 
-    COMMON BLOCKS:
-     COMMON /APXIN/   YAPX(3,3)
-     COMMON /FLDCOMD/ BX, BY, BZ, BB
-     COMMON /ITRA/    NSTP, Y(3), YOLD(3), SGN, DS
-
-    APXIN has step locations determined in ITRACE:
-     YAPX  = Matrix of cartesian coordinates (loaded columnwise) of the
-             three points about the apex.  Set in subroutine ITRACE.
+    INPUTS:
+     YAPX  = Matrix of cartesian coordinates of the three points
+             about the apex.  Set in itrace.
 
     FLDCOMD has geomagnetic field at current trace point:
-     BX    = X component (Gauss)
-     BY    = Y component (Gauss)
-     BZ    = Z component (Gauss)
-     BB    = Magnitude   (Gauss)
+     BX    = X component (nT)
+     BY    = Y component (nT)
+     BZ    = Z component (nT)
+     BB    = Magnitude   (nT)
 
-    ITRA has field line tracing variables determined in LINAPX:
+    itrace has field line tracing variables determined in findApex:
      NSTP  = Step count.
      Y     = Array containing current tracing point cartesian coordinates.
      YOLD  = Array containing previous tracing point cartesian coordinates.
@@ -46,12 +36,12 @@ def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
      Stassinopoulos E. G. , Mead Gilbert D., X-841-72-17 (1971) GSFC,
      Greenbelt, Maryland
     --------------------------------------------------------------------
-    HISTORY:
-    Oct 1973: Initial version completed on the 29th by W. Clark, NOAA ERL
-             Laboratory.
-    Feb 1988: Revised by H. Passi, NCAR.
-    Apr 2004: Replace computed GO TO with if blocks because some compilers
-             are threatening to remove this old feature
+    # HISTORY:
+    # Oct 1973: Initial version completed on the 29th by W. Clark, NOAA ERL
+    #          Laboratory.
+    # Feb 1988: Revised by H. Passi, NCAR.
+    # Apr 2004: Replace computed GO TO with if blocks because some compilers
+    #          are threatening to remove this old feature
 
     """
 
@@ -116,6 +106,11 @@ def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
 
 
 def northPole(date):
+    """
+    Calculate the position of north pole at the first order approximation.
+    :param date: years(float year)
+    :return: lat(float deg) lon(float deg)
+    """
     g, h = getCoeffs(date)
     colat = np.arccos(g[1][0]/np.sqrt(g[1][0]**2 + g[1][1]**2 + h[1][1]**2))
     elong = np.arctan2(h[1][1], g[1][1])
@@ -123,6 +118,14 @@ def northPole(date):
 
 
 def findApex(lat, lon, alt, date=2005.):
+    """
+    Follow a geomagnetic field line until passing its apex.
+    :param lat: latitude of start position(float deg)
+    :param lon: longitude of start position(float deg)
+    :param alt: altitude of start position(float deg)
+    :param date: years(year)
+    :return: trace: dots of the field line(list([float, float, float]) km)
+    """
     nlat, nlon = northPole(date)
     nlat, nlon = nlat/FACT, nlon/FACT
     ctp = np.cos(np.pi/2-nlat)
@@ -147,7 +150,7 @@ def findApex(lat, lon, alt, date=2005.):
         DS = gcrho*0.06/cgml2-370
 
         bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
-        Bx, By, Bz = span([bx, by, bz], gclon, gclat)
+        Bx, By, Bz = rotateVector([bx, by, bz], gclon, gclat)
 
         arrive, Y, YP = itrace(YAPX, Y, YOLD, Bx, By, Bz, bb, -1., DS, step, YP)
         step += 1
