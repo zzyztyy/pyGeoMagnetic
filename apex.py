@@ -8,9 +8,10 @@ FACT = 180./np.pi
 R = 6371.2
 
 
-def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
+def itrace(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
     """
     Follow a geomagnetic field line until passing its apex
+    Cartesian component magnetic field (partial) derivitives steer the trace
 
     This uses the 4-point Adams formula after initialization.
     First 7 iterations advance point by 3 steps.
@@ -44,9 +45,6 @@ def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
     #          are threatening to remove this old feature
 
     """
-
-    #   Cartesian component magnetic field (partial) derivitives steer the trace
-    # print(SGN, BX, BY, BZ, BB)
     YP[0][3] = SGN * BX / BB
     YP[1][3] = SGN * BY / BB
     YP[2][3] = SGN * BZ / BB
@@ -88,7 +86,7 @@ def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
             RC = np.sqrt(YAPX[0][2]**2 + YAPX[1][2]**2 + YAPX[2][2]**2)
             RP = np.sqrt(YAPX[0][1]**2 + YAPX[1][1]**2 + YAPX[2][1]**2)
             if RC < RP:
-                return True, Y, YP
+                return True
     else:  # NSTP > 7
         for I in range(0, 3):
             YAPX[I][0] = YAPX[I][1]
@@ -101,8 +99,8 @@ def itrace(YAPX, Y, YOLD, BX, BY, BZ, BB, SGN, DS, NSTP, YP):
         RC = np.sqrt(Y[0]**2 + Y[1]**2 + Y[2]**2)
         RP = np.sqrt(YOLD[0]**2 + YOLD[1]**2 + YOLD[2]**2)
         if RC < RP:
-            return True, Y, YP
-    return False, Y, YP
+            return True
+    return False
 
 
 def northPole(date):
@@ -134,7 +132,9 @@ def findApex(lat, lon, alt, date=2005.):
     gccolat, plon, gcrho = geodetic2geocentric(np.pi/2-lat/FACT, alt)
     gclat, gclon = np.pi/2-gccolat, lon/FACT
     x0, y0, z0 = geocentric2cartesian(gclat, gclon, gcrho)
+    bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
 
+    sgn = -np.sign(bz)
     trace = [[x0, y0, z0]]
     YAPX = np.array([[0.]*3]*3)
     step = 0
@@ -152,7 +152,7 @@ def findApex(lat, lon, alt, date=2005.):
         bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
         Bx, By, Bz = rotateVector([bx, by, bz], gclon, gclat)
 
-        arrive, Y, YP = itrace(YAPX, Y, YOLD, Bx, By, Bz, bb, -1., DS, step, YP)
+        arrive = itrace(Y, YOLD, YAPX, YP, Bx, By, Bz, bb, sgn, DS, step)
         step += 1
         gclat, gclon, gcrho = cartesian2geocentric(Y[0], Y[1], Y[2])
         trace.append(Y[:])

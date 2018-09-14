@@ -73,7 +73,7 @@ def rotateVector(vec, alpha, beta):
     sa = np.sin(alpha)
     cb = np.cos(beta)
     sb = np.sin(beta)
-    spanMat = np.array([[-sb*ca, -sb*sa, -cb],
-                       [-sa,     ca,     0],
-                       [cb*ca,   cb*sa,  -sb]])
+    spanMat = np.array([[-sb*ca, -sa, -cb*ca],
+                       [-sb*sa,   ca,     -cb*sa],
+                       [cb,        0,  -sb]])
     return np.dot(spanMat, vec)
