@@ -115,7 +115,7 @@ def northPole(date):
     return colat*FACT-90, elong*FACT-180
 
 
-def findApex(lat, lon, alt, date=2005.):
+def traceToApex(lat, lon, alt, date=2005.):
     """
     Follow a geomagnetic field line until passing its apex.
     :param lat: latitude of start position(float deg)
@@ -134,26 +134,98 @@ def findApex(lat, lon, alt, date=2005.):
     x0, y0, z0 = geocentric2cartesian(gclat, gclon, gcrho)
     bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
 
-    sgn = -np.sign(bz)
-    trace = [[x0, y0, z0]]
-    YAPX = np.array([[0.]*3]*3)
+    trace = []
     step = 0
+    sgn = -np.sign(bz)
     arrive = False
     Y = [x0, y0, z0]
     YOLD = [0, 0, 0]
+    YAPX= [[0., 0., 0.],
+           [0., 0., 0.],
+           [0., 0., 0.]]
     YP = [[0., 0., 0., 0.],
           [0., 0., 0., 0.],
           [0., 0., 0., 0.]]
+    lstBdown = [0., 0., 0.]
+
     while not arrive and step < 100:
         stngml = ctp*np.sin(gclat)+stp*np.cos(gclat)*np.cos(gclon-nlon)
         cgml2 = max(1-stngml**2, 0.25)
         DS = gcrho*0.06/cgml2-370
 
         bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
+        lstBdown = [lstBdown[1], lstBdown[2], bz]
         Bx, By, Bz = rotateVector([bx, by, bz], gclon, gclat)
 
         arrive = itrace(Y, YOLD, YAPX, YP, Bx, By, Bz, bb, sgn, DS, step)
         step += 1
         gclat, gclon, gcrho = cartesian2geocentric(Y[0], Y[1], Y[2])
         trace.append(Y[:])
-    return trace
+
+    # interpolate to where Bdown = 0 to find cartesian coordinates at dip equator
+    dot1, dot2, dot3 = trace[-1], trace[-2], trace[-3]
+    Ax = secDegInterpolate(lstBdown[0], lstBdown[1], lstBdown[2], dot1[0], dot2[0], dot3[0], 0.)
+    Ay = secDegInterpolate(lstBdown[0], lstBdown[1], lstBdown[2], dot1[1], dot2[1], dot3[1], 0.)
+    Az = secDegInterpolate(lstBdown[0], lstBdown[1], lstBdown[2], dot1[2], dot2[2], dot3[2], 0.)
+
+    trace[-1] = [Ax, Ay, Az]
+    return trace, sgn
+
+
+def secDegInterpolate(x1, x2, x3, y1, y2, y3, xfit):
+    """second degree interpolation used by findApex"""
+    x12 = x1-x2
+    x13 = x1-x3
+    x23 = x2-x3
+    xf1 = xfit-x1
+    xf2 = xfit-x2
+    xf3 = xfit-x3
+    yfit = (y1*x23*xf2*xf3-y2*x13*xf1*xf3+y3*x12*xf1*xf2)/(x12*x13*x23)
+    return yfit
+
+
+def qdCoordination(start, apex, northPoleLat, northPoleLon, sgn):
+    """
+    Calculate the magnetic coordination according to Apex position.
+    :param start: position of start [x, y, z] (list(float), km)
+    :param apex: position of Apex [x, y, z] (list(float), km)
+    :param northPoleLat: latitude of north pole (float, rad)
+    :param northPoleLon: longitude of north pole (float, rad)
+    :param sgn: minus for south, positive for north (-1 or 1)
+    :return mlat: magnetic latitude (float, deg)
+            mlon: magnetic longitude (float, deg)
+    """
+    rs = np.sqrt(start[0]**2 + start[1]**2 + start[2]**2)
+    ra = np.sqrt(apex[0]**2 + apex[1]**2 + apex[2]**2)
+    mlat = np.arccos(np.sqrt(rs/ra))*sgn*FACT
+
+    xlon = np.arctan2(apex[1], apex[0])
+    elon = northPoleLon
+    ang = xlon-elon
+    cang = np.cos(ang)
+    sang = np.sin(ang)
+    r = ra
+    cte = apex[2]/r
+    ste = np.sqrt(1.-cte*cte)
+    ctp = np.cos(np.pi/2-northPoleLat)
+    stp = np.sin(np.pi/2-northPoleLat)
+    stfcpa = ste*ctp*cang-cte*stp
+    stfspa = sang*ste
+    mlon = np.arctan2(stfspa, stfcpa)*FACT % 360.
+    return mlat, mlon
+
+
+def gd2qd(lat, lon, alt=0., date=2005.):
+    """
+    transform from geodetic to quasi-dipole coordination
+    :param lat: latitude (float, deg)
+    :param lon: longitude (float, deg)
+    :param alt: altitude (float, km)
+    :param date: time (float, year)
+    :return mlat: magnetic latitude (float, deg)
+            mlon: magnetic longitude (float, deg)
+    """
+    trace, sgn = traceToApex(lat, lon, alt, date)
+    nlat, nlon = northPole(date)
+    mlat, mlon = qdCoordination(trace[0], trace[-1], nlat/FACT, nlon/FACT, -sgn)
+    return mlat, mlon
