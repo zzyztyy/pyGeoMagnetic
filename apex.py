@@ -229,3 +229,51 @@ def gd2qd(lat, lon, alt=0., date=2005.):
     nlat, nlon = northPole(date)
     mlat, mlon = qdCoordination(trace[0], trace[-1], nlat/FACT, nlon/FACT, -sgn)
     return mlat, mlon
+
+
+def lineToApex(mlat, mlon, alt, date=2005.):
+    nlat, nlon = northPole(date)
+    nlat, nlon = nlat / FACT, nlon / FACT
+    cb = np.cos(np.pi / 2 - nlat)
+    sb = np.sin(np.pi / 2 - nlat)
+
+    A = np.pi - mlon/FACT
+    sA = np.sin(A)
+    cA = np.sqrt(1-sA*sA)
+
+    ha = (R + alt)/np.cos(mlat) - R
+
+    arrive = False
+    north_a = nlat
+    south_a = -nlat
+    alat, alon = 0., 0.
+    # 控制a，二分迭代找apex
+    while not arrive:
+        a = (north_a+south_a)/2
+        bz, bb, alat, alon = tempB(a, ha, cb, sb, cA, sA, nlon, date)
+        if abs(bz/bb) < 0.00002:
+            arrive = True
+        else:
+            if bz < 0:
+                north_a = a
+            else:
+                south_a = a
+    return alat, alon
+
+
+
+def tempB(a, h, cb, sb, cA, sA, nlon, date):
+    sa = np.sin(a)
+    ca = np.cos(a)
+    sB = sb*sA/sa
+    cB = np.sqrt(1-sB*sB)
+    cC = (sA*sB*ca*cb-cA*cB)/(1-sb*sb*sA*sA)
+
+    lon = np.sign(sA)*np.arccos(cC) + nlon
+    lat = np.pi/2 - a
+
+    bx, by, bz, bb = igrf12syn(0, date, 1, h, lat, lon)
+    return bz, bb, lat, lon
+
+
+
