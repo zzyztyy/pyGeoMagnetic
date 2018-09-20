@@ -7,7 +7,7 @@ def geodetic2geocentric(theta, alt):
     :param theta: colatitude (float, rad)
     :param alt: altitude (float, km)
     :return gccolat: geocentric colatitude (float, rad)
-            gclon: geocentric longitude (float, rad)
+            d: gccolat minus theta (float, rad)
             r: geocentric radius (float, km)
     """
     ct = np.cos(theta)
@@ -25,8 +25,31 @@ def geodetic2geocentric(theta, alt):
     ct = ct * cd - st * sd
     st = st * cd + one * sd
     gccolat = np.arctan2(st, ct)
-    gclon = np.arctan2(sd, cd)
-    return gccolat, gclon, r
+    d = np.arctan2(sd, cd)
+    return gccolat, d, r
+
+
+def geocentric2geodetic(gclat, r):
+    """
+    Conversion from geodetic to geocentric coordinates by using the WGS84 spheroid.
+    It is approximate solution rather than analytical solution.
+    :param gclat: geocentric colatitude (float, rad)
+    :param r: geocentric radius (float, km)
+    :return lat: latitude (float, rad)
+            alt : altitude (float, km)
+    """
+    ct = np.cos(np.pi/2-gclat)
+    st = np.sin(np.pi/2-gclat)
+    a2 = 40680631.6
+    b2 = 40408296.0
+    rho2 = a2*st*st + b2*ct*ct
+    rho = np.sqrt(rho2)
+    alt = r - rho
+    sd = (a2-b2)/(rho*r)*ct*st
+    cd = np.sqrt(1-sd*sd)
+    d = np.arctan2(sd, cd)
+    lat = gclat+d
+    return lat, alt
 
 
 def geocentric2cartesian(lat, lon, rho):
