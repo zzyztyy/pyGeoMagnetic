@@ -38,14 +38,6 @@ def itrace(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
     REFERENCES:
      Stassinopoulos E. G. , Mead Gilbert D., X-841-72-17 (1971) GSFC,
      Greenbelt, Maryland
-    --------------------------------------------------------------------
-    # HISTORY:
-    # Oct 1973: Initial version completed on the 29th by W. Clark, NOAA ERL
-    #          Laboratory.
-    # Feb 1988: Revised by H. Passi, NCAR.
-    # Apr 2004: Replace computed GO TO with if blocks because some compilers
-    #          are threatening to remove this old feature
-
     """
     YP[0][3] = SGN * BX / BB
     YP[1][3] = SGN * BY / BB
@@ -84,12 +76,7 @@ def itrace(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
                 Y[I] = YOLD[I] + D24 * (9. * YP[I][3] + 19. * YP[I][2] - 5. * YP[I][1] + YP[I][0])
                 YAPX[I][2] = Y[I]
 
-        if NSTP == 6 or NSTP == 7:  # signal if apex passed
-            RC = np.sqrt(YAPX[0][2]**2 + YAPX[1][2]**2 + YAPX[2][2]**2)
-            RP = np.sqrt(YAPX[0][1]**2 + YAPX[1][1]**2 + YAPX[2][1]**2)
-            if RC < RP:
-                return True
-    else:  # NSTP > 7
+    else:
         for I in range(0, 3):
             YAPX[I][0] = YAPX[I][1]
             YAPX[I][1] = Y[I]
@@ -98,11 +85,6 @@ def itrace(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
             YAPX[I][2] = Y[I]
             for J in range(0, 3):
                 YP[I][J] = YP[I][J + 1]
-        RC = np.sqrt(Y[0]**2 + Y[1]**2 + Y[2]**2)
-        RP = np.sqrt(YOLD[0]**2 + YOLD[1]**2 + YOLD[2]**2)
-        if RC < RP:
-            return True
-    return False
 
 
 def northPole(date):
@@ -148,7 +130,6 @@ def traceToApex(lat, lon, alt, date=2005.):
     YP = [[0., 0., 0., 0.],
           [0., 0., 0., 0.],
           [0., 0., 0., 0.]]
-    # lstBdown = [0., 0., 0.]
 
     while not arrive and step < 100:
         stngml = ctp*np.sin(gclat)+stp*np.cos(gclat)*np.cos(gclon-nlon)
@@ -159,10 +140,15 @@ def traceToApex(lat, lon, alt, date=2005.):
         # lstBdown = [lstBdown[1], lstBdown[2], bz]
         Bx, By, Bz = rotateVector([bx, by, bz], gclon, gclat)
 
-        arrive = itrace(Y, YOLD, YAPX, YP, Bx, By, Bz, bb, sgn, DS, step)
+        itrace(Y, YOLD, YAPX, YP, Bx, By, Bz, bb, sgn, DS, step)
         step += 1
         gclat, gclon, gcrho = cartesian2geocentric(Y[0], Y[1], Y[2])
         trace.append(Y[:])
+
+        if step >= 7:
+            RC = np.sqrt(YAPX[0][2] ** 2 + YAPX[1][2] ** 2 + YAPX[2][2] ** 2)
+            RP = np.sqrt(YAPX[0][1] ** 2 + YAPX[1][1] ** 2 + YAPX[2][1] ** 2)
+            arrive = RC < RP
 
     # interpolate to where Bdown/B < 0.00002 to find cartesian coordinates at dip equator
     dot = [trace[-3], trace[-2], trace[-1]]
@@ -300,63 +286,63 @@ def tempB(a, h, cb, sb, cA, sA, nlon, date):
     return bz, bb, lat, lon
 
 
-def itrace_r(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
-    YP[0][3] = SGN * BX / BB
-    YP[1][3] = SGN * BY / BB
-    YP[2][3] = SGN * BZ / BB
-    D2 = DS / 2.
-    D6 = DS / 6.
-    D12 = DS / 12.
-    D24 = DS / 24.
-    if NSTP <= 7:
-        for I in range(0, 3):
-            if NSTP == 1:
-                YP[I][0] = YP[I][3]
-                YOLD[I] = Y[I]
-                YAPX[I][0] = Y[I]
-                Y[I] = YOLD[I] + DS * YP[I][0]
-            elif NSTP == 2:
-                YP[I][1] = YP[I][3]
-                Y[I] = YOLD[I] + D2 * (YP[I][1] + YP[I][0])
-            elif NSTP == 3:
-                Y[I] = YOLD[I] + D6 * (2. * YP[I][3] + YP[I][1] + 3. * YP[I][0])
-            elif NSTP == 4:
-                YP[I][1] = YP[I][3]
-                YAPX[I][1] = Y[I]
-                YOLD[I] = Y[I]
-                Y[I] = YOLD[I] + D2 * (3.0 * YP[I][1] - YP[I][0])
-            elif NSTP == 5:
-                Y[I] = YOLD[I] + D12 * (5. * YP[I][3] + 8. * YP[I][1] - YP[I][0])
-            elif NSTP == 6:
-                YP[I][2] = YP[I][3]
-                YOLD[I] = Y[I]
-                YAPX[I][2] = Y[I]
-                Y[I] = YOLD[I] + D12 * (23. * YP[I][2] - 16. * YP[I][1] + 5. * YP[I][0])
-            elif NSTP == 7:
-                YAPX[I][0] = YAPX[I][1]
-                YAPX[I][1] = YAPX[I][2]
-                Y[I] = YOLD[I] + D24 * (9. * YP[I][3] + 19. * YP[I][2] - 5. * YP[I][1] + YP[I][0])
-                YAPX[I][2] = Y[I]
-
-        # if NSTP == 6 or NSTP == 7:  # signal if apex passed
-        #     RC = np.sqrt(YAPX[0][2]**2 + YAPX[1][2]**2 + YAPX[2][2]**2)
-        #     RP = np.sqrt(YAPX[0][1]**2 + YAPX[1][1]**2 + YAPX[2][1]**2)
-        #     if RC < RP:
-        #         return True
-    else:  # NSTP > 7
-        for I in range(0, 3):
-            YAPX[I][0] = YAPX[I][1]
-            YAPX[I][1] = Y[I]
-            YOLD[I] = Y[I]
-            Y[I] = YOLD[I] + D24 * (55. * YP[I][3] - 59. * YP[I][2] + 37. * YP[I][1] - 9. * YP[I][0])
-            YAPX[I][2] = Y[I]
-            for J in range(0, 3):
-                YP[I][J] = YP[I][J + 1]
-        # RC = np.sqrt(Y[0]**2 + Y[1]**2 + Y[2]**2)
-        # RP = np.sqrt(YOLD[0]**2 + YOLD[1]**2 + YOLD[2]**2)
-        # if RC < RP:
-        #     return True
-    # return 0
+# def itrace_r(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
+#     YP[0][3] = SGN * BX / BB
+#     YP[1][3] = SGN * BY / BB
+#     YP[2][3] = SGN * BZ / BB
+#     D2 = DS / 2.
+#     D6 = DS / 6.
+#     D12 = DS / 12.
+#     D24 = DS / 24.
+#     if NSTP <= 7:
+#         for I in range(0, 3):
+#             if NSTP == 1:
+#                 YP[I][0] = YP[I][3]
+#                 YOLD[I] = Y[I]
+#                 YAPX[I][0] = Y[I]
+#                 Y[I] = YOLD[I] + DS * YP[I][0]
+#             elif NSTP == 2:
+#                 YP[I][1] = YP[I][3]
+#                 Y[I] = YOLD[I] + D2 * (YP[I][1] + YP[I][0])
+#             elif NSTP == 3:
+#                 Y[I] = YOLD[I] + D6 * (2. * YP[I][3] + YP[I][1] + 3. * YP[I][0])
+#             elif NSTP == 4:
+#                 YP[I][1] = YP[I][3]
+#                 YAPX[I][1] = Y[I]
+#                 YOLD[I] = Y[I]
+#                 Y[I] = YOLD[I] + D2 * (3.0 * YP[I][1] - YP[I][0])
+#             elif NSTP == 5:
+#                 Y[I] = YOLD[I] + D12 * (5. * YP[I][3] + 8. * YP[I][1] - YP[I][0])
+#             elif NSTP == 6:
+#                 YP[I][2] = YP[I][3]
+#                 YOLD[I] = Y[I]
+#                 YAPX[I][2] = Y[I]
+#                 Y[I] = YOLD[I] + D12 * (23. * YP[I][2] - 16. * YP[I][1] + 5. * YP[I][0])
+#             elif NSTP == 7:
+#                 YAPX[I][0] = YAPX[I][1]
+#                 YAPX[I][1] = YAPX[I][2]
+#                 Y[I] = YOLD[I] + D24 * (9. * YP[I][3] + 19. * YP[I][2] - 5. * YP[I][1] + YP[I][0])
+#                 YAPX[I][2] = Y[I]
+#
+#         # if NSTP == 6 or NSTP == 7:  # signal if apex passed
+#         #     RC = np.sqrt(YAPX[0][2]**2 + YAPX[1][2]**2 + YAPX[2][2]**2)
+#         #     RP = np.sqrt(YAPX[0][1]**2 + YAPX[1][1]**2 + YAPX[2][1]**2)
+#         #     if RC < RP:
+#         #         return True
+#     else:  # NSTP > 7
+#         for I in range(0, 3):
+#             YAPX[I][0] = YAPX[I][1]
+#             YAPX[I][1] = Y[I]
+#             YOLD[I] = Y[I]
+#             Y[I] = YOLD[I] + D24 * (55. * YP[I][3] - 59. * YP[I][2] + 37. * YP[I][1] - 9. * YP[I][0])
+#             YAPX[I][2] = Y[I]
+#             for J in range(0, 3):
+#                 YP[I][J] = YP[I][J + 1]
+#         # RC = np.sqrt(Y[0]**2 + Y[1]**2 + Y[2]**2)
+#         # RP = np.sqrt(YOLD[0]**2 + YOLD[1]**2 + YOLD[2]**2)
+#         # if RC < RP:
+#         #     return True
+#     # return 0
 
 
 def traceToStart(alat, alon, ha, date, sgn, hs):
@@ -390,7 +376,7 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
         bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
         Bx, By, Bz = rotateVector([bx, by, bz], gclon, gclat)
 
-        itrace_r(Y, YOLD, YAPX, YP, Bx, By, Bz, bb, sgn, DS, step)
+        itrace(Y, YOLD, YAPX, YP, Bx, By, Bz, bb, sgn, DS, step)
         step += 1
         gclat, gclon, gcrho = cartesian2geocentric(Y[0], Y[1], Y[2])
         trace.append(Y[:])
