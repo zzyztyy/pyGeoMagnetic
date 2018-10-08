@@ -1,6 +1,6 @@
 import numpy as np
 
-import igrf
+from pyIGRF.calculate import igrf12syn
 
 FACT = 180./np.pi
 
@@ -14,7 +14,7 @@ def dipLat(lat, lon, alt, year=2005.):
     :param year: years (float, year)
     :return: maglatitude (float, deg)
     """
-    mag = igrf.igrf12syn(0, year, 1, alt, lat, lon)
+    mag = igrf12syn(0, year, 1, alt, lat, lon)
     print(mag)
     mlat = np.tan(mag[1]/2/FACT)*FACT
     return mlat

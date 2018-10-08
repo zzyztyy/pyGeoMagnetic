@@ -2,7 +2,8 @@ import numpy as np
 
 from coordinate import cartesian2geocentric, geocentric2cartesian,\
     geodetic2geocentric, rotateVector, geocentric2geodetic
-from igrf import igrf12syn, getCoeffs
+from pyIGRF.calculate import igrf12syn
+from pyIGRF.loadCoeffs import getCoeffs
 
 
 FACT = 180./np.pi
@@ -214,8 +215,8 @@ def qdCoordination(start, apex, northPoleLat, northPoleLon, sgn):
     slat, sh = geocentric2geodetic(sgclat, sr)
     agclat, agclon, ar = cartesian2geocentric(apex[0], apex[1], apex[2])
     alat, ah = geocentric2geodetic(agclat, ar)
-    mlat = np.arccos(np.sqrt((R+sh)/(R+ah)))*sgn*FACT
-    print(alat*FACT, agclon*FACT, ah)
+    mlat = np.arccos(min(np.sqrt((R+sh)/(R+ah)), 1))*sgn*FACT
+    # print(alat*FACT, agclon*FACT, ah)
 
     xlon = np.arctan2(apex[1], apex[0])
     elon = northPoleLon
@@ -257,7 +258,7 @@ def lineToApex(mlat, mlon, alt, date=2005.):
 
     A = np.pi - mlon
     sA = np.sin(A)
-    cA = np.sqrt(1-sA*sA)
+    cA = np.cos(A)
 
     ha = (R + alt)/(np.cos(mlat)**2) - R
 
@@ -284,13 +285,15 @@ def lineToApex(mlat, mlon, alt, date=2005.):
 
 
 def tempB(a, h, cb, sb, cA, sA, nlon, date):
+    sgn = np.sign(sA)
     sa = np.sin(a)
     ca = np.cos(a)
     sB = sb*sA/sa
     cB = np.sqrt(1-sB*sB)
     cC = (sA*sB*ca*cb-cA*cB)/(1-sb*sb*sA*sA)
+    C = np.arccos(cC)*FACT
 
-    lon = np.sign(sA)*np.arccos(cC) + nlon
+    lon = (sgn*np.arccos(cC) + nlon) % (2*np.pi)
     lat = np.pi/2 - a
 
     bx, by, bz, bb = igrf12syn(0, date, 1, h, lat*FACT, lon*FACT)
@@ -362,7 +365,7 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
     ctp = np.cos(np.pi / 2 - nlat)
     stp = np.sin(np.pi / 2 - nlat)
 
-    gccolat, plon, gcrho = geodetic2geocentric(np.pi / 2 - alat / FACT, ha)
+    gccolat, plon, gcrho = geodetic2geocentric(np.pi / 2 - alat, ha)
     gclat, gclon = np.pi / 2 - gccolat, alon
     x0, y0, z0 = geocentric2cartesian(gclat, gclon, gcrho)
 
@@ -399,7 +402,7 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
     dot = [trace[-3], trace[-2], trace[-1]]
     h = [0., 0., 0.]
     step = 0
-    while abs(alt-hs) > 1.:
+    while abs(alt-hs) > 0.1:
         if step >= 3:
             dot1, dot2, dot3 = dot[-3], dot[-2], dot[-1]
             Ax = secDegInterpolate(h[0], h[1], h[2], dot1[0], dot2[0], dot3[0], hs)
@@ -422,6 +425,7 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
 def qd2gd(mlat, mlon, alt=0., date=2005.):
     sgn = np.sign(mlat)
     alat, alon, ha = lineToApex(mlat/FACT, mlon/FACT, alt, date)
+    # print(alat*FACT, alon*FACT, ha)
     trace = traceToStart(alat, alon, ha, date, sgn, alt)
     start = trace[-1]
     gclat, gclon, gcr = cartesian2geocentric(start[0], start[1], start[2])

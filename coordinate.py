@@ -44,11 +44,16 @@ def geocentric2geodetic(gclat, r):
     b2 = 40408296.0
     rho2 = a2*st*st + b2*ct*ct
     rho = np.sqrt(rho2)
-    alt = r - rho
     sd = (a2-b2)/(rho*r)*ct*st
     cd = np.sqrt(1-sd*sd)
     d = np.arctan2(sd, cd)
     lat = gclat+d
+
+    ct = np.cos(np.pi / 2 - lat)
+    st = np.sin(np.pi / 2 - lat)
+    rho2 = a2 * st * st + b2 * ct * ct
+    rho = np.sqrt(rho2)
+    alt = r - rho
     return lat, alt
 
 

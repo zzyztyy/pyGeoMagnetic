@@ -3,11 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+from pyIGRF.calculate import igrf12syn
+# from pyIGRF.loadCoeffs import getCoeffs
+
 import apex
-import igrf
 import dipLat
+import coordinate
 
 FACT = 180./np.pi
+R = 6371.2
 
 
 @with_goto
@@ -237,7 +241,7 @@ def testIgrf12():
     # print(test.igrf12synOld(0, 2046.0, ITYPE, ALT, 90-CLT, XLN))
     # print(igrf12syn(0, 2046.0, ITYPE, ALT, CLT, XLN))
     print(igrf12synOld(0, 2005.0, ITYPE, ALT, 90 - CLT, XLN))
-    print(igrf.igrf12syn(0, 2005.0, ITYPE, ALT, CLT, XLN))
+    print(igrf12syn(0, 2005.0, ITYPE, ALT, CLT, XLN))
 
 
 def sphere(center, radius, ax):
@@ -268,17 +272,65 @@ def draw(trace):
 
 
 def testApex():
-    trace = apex.findApex(20, 0, 0)
-    draw(trace)
+    lat = 40.
+    lon = -10
+    alt = 0
+    for lat in range(-10, 20, 10):
+        dlat = []
+        dlon = []
+        dalt = []
+        for lon in range(-180, 180, 10):
+            print(lat, lon)
+            mlat, mlon = apex.gd2qd(lat, lon, alt)
+            print(mlat, mlon)
+            tlat, tlon, talt = apex.qd2gd(mlat, mlon, alt)
+            dlat.append(lat-tlat)
+            dlon.append(lon-tlon)
+            dalt.append(talt)
+        plt.plot(range(-180, 180, 10), dlat)
+    plt.show()
+
+    # mlat, mlon = apex.gd2qd(lat, lon, alt)
+    # print(mlat, mlon)
+    # tlat, tlon, talt = apex.qd2gd(mlat, mlon, alt)
+    # print(tlat, tlon, talt)
 
 
 def testDipLat():
-    lat = 7.7
+    lat = 40
     lon = 116
     alt = 0
     year = 2005
     print(dipLat.dipLat(lat, lon, alt, year))
 
 
+def testCoordinate():
+    lat = 40
+    lon = 116
+    alt = 0
+    # for alt in range(0, 2000, 200):
+    #     gclat_list = []
+    #     gcr_list = []
+    #     plon_list = []
+    #     for lat in range(0, 90):
+    #         ct = np.cos(np.pi / 2 - lat/FACT)
+    #         st = np.sin(np.pi / 2 - lat/FACT)
+    #         a2 = 40680631.6
+    #         b2 = 40408296.0
+    #         rho2 = a2 * st * st + b2 * ct * ct
+    #         rho = np.sqrt(rho2)
+    #         gclat, plon, gcr = coordinate.geodetic2geocentric(np.pi/2-lat/FACT, alt)
+    #         gclat_list.append(gclat)
+    #         gcr_list.append(gcr-alt-rho)
+    #         plon_list.append(plon)
+    #     plt.plot(range(0, 90), gcr_list)
+    # plt.show()
+    gclat, plon, gcr = coordinate.geodetic2geocentric(np.pi/2-lat/FACT, alt)
+    print(90-gclat*FACT, gcr)
+    lat, alt = coordinate.geocentric2geodetic(np.pi/2-gclat, gcr)
+    print(lat*FACT, alt)
+
+
 if __name__ == '__main__':
-    testDipLat()
+    print('start')
+    testApex()

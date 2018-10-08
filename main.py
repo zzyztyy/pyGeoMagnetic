@@ -1,6 +1,6 @@
 import numpy as np
 
-import igrf
+from pyIGRF.calculate import igrf12syn
 
 FACT = 180./np.pi
 
@@ -16,7 +16,7 @@ def igrf12(lat, lon, alt=0., year=2005.):
          Z is vertical component (+ve down)
          F is total intensity
     """
-    X, Y, Z, F = igrf.igrf12syn(0, year, 1, alt, lat, lon)
+    X, Y, Z, F = igrf12syn(0, year, 1, alt, lat, lon)
     D = FACT * np.arctan2(Y, X)
     H = np.sqrt(X * X + Y * Y)
     I = FACT * np.arctan2(Z, H)
@@ -34,9 +34,9 @@ def igrf12sv(lat, lon, alt=0, year=2005):
          Z is vertical component (+ve down)
          F is total intensity
     """
-    X, Y, Z, F = igrf.igrf12syn(0, year, 1, alt, lat, lon)
+    X, Y, Z, F = igrf12syn(0, year, 1, alt, lat, lon)
     H = np.sqrt(X * X + Y * Y)
-    DX, DY, DZ, DF = igrf.igrf12syn(1, year, 1, alt, lat, lon)
+    DX, DY, DZ, DF = igrf12syn(1, year, 1, alt, lat, lon)
     DD = (60.0 * FACT * (X * DY - Y * DX)) / (H * H)
     DH = (X * DX + Y * DY) / H
     DS = (60.0 * FACT * (H * DZ - Z * DH)) / (F * F)
