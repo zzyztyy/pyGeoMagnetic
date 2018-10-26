@@ -5,9 +5,9 @@ from coordinate import cartesian2geocentric, geocentric2cartesian,\
 from pyIGRF.calculate import igrf12syn
 from pyIGRF.loadCoeffs import getCoeffs
 
-
 FACT = 180./np.pi
 R = 6371.2
+delta = 0.000002
 
 
 def itrace(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
@@ -99,7 +99,37 @@ def northPole(date):
     return colat*FACT-90, elong*FACT-180
 
 
-def traceToApex(lat, lon, alt, date=2005.):
+def secDegInterpolate(x1, x2, x3, y1, y2, y3, xfit):
+    """second degree interpolation used by findApex"""
+    x12 = x1-x2
+    x13 = x1-x3
+    x23 = x2-x3
+    xf1 = xfit-x1
+    xf2 = xfit-x2
+    xf3 = xfit-x3
+    yfit = (y1*x23*xf2*xf3-y2*x13*xf1*xf3+y3*x12*xf1*xf2)/(x12*x13*x23)
+    return yfit
+
+
+def getDS(ctp, stp, gcrho, gclat, gclon, nlon):
+    # print('new')
+    stngml = ctp * np.sin(gclat) + stp * np.cos(gclat) * np.cos(gclon - nlon)
+    sgml2 = stngml*stngml
+    cgml = np.median([0.0000001, np.sqrt(1-sgml2), 0.9999999])
+    DS = 0.02*gcrho*(3.3/cgml-2.8*cgml)
+    return min(DS, gcrho)
+
+
+def getDS_old(ctp, stp, gcrho, gclat, gclon, nlon):
+    # print('old')
+    stngml = ctp * np.sin(gclat) + stp * np.cos(gclat) * np.cos(gclon - nlon)
+    cgml2 = max(1 - stngml ** 2, 0.25)
+    DS = gcrho * 0.06 / cgml2 - 370
+    return DS
+
+
+# gd2qd
+def traceToApex(lat, lon, alt, date, nlat, nlon, tDS):
     """
     Follow a geomagnetic field line until passing its apex.
     :param lat: latitude of start position(float deg)
@@ -108,8 +138,6 @@ def traceToApex(lat, lon, alt, date=2005.):
     :param date: years(year)
     :return: trace: dots of the field line(list([float, float, float]) km)
     """
-    nlat, nlon = northPole(date)
-    nlat, nlon = nlat/FACT, nlon/FACT
     ctp = np.cos(np.pi/2-nlat)
     stp = np.sin(np.pi/2-nlat)
 
@@ -131,10 +159,14 @@ def traceToApex(lat, lon, alt, date=2005.):
           [0., 0., 0., 0.],
           [0., 0., 0., 0.]]
 
-    while not arrive and step < 100:
-        stngml = ctp*np.sin(gclat)+stp*np.cos(gclat)*np.cos(gclon-nlon)
-        cgml2 = max(1-stngml**2, 0.25)
-        DS = gcrho*0.06/cgml2-370
+    while not arrive and step < 500:
+        # stngml = ctp*np.sin(gclat)+stp*np.cos(gclat)*np.cos(gclon-nlon)
+        # cgml2 = max(1-stngml**2, 0.25)
+        # DS = gcrho*0.06/cgml2-370
+        if tDS == 1:
+            DS = getDS(ctp, stp, gcrho, gclat, gclon, nlon)
+        else:
+            DS = getDS_old(ctp, stp, gcrho, gclat, gclon, nlon)
 
         bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
         # lstBdown = [lstBdown[1], lstBdown[2], bz]
@@ -149,12 +181,12 @@ def traceToApex(lat, lon, alt, date=2005.):
             RC = np.sqrt(YAPX[0][2] ** 2 + YAPX[1][2] ** 2 + YAPX[2][2] ** 2)
             RP = np.sqrt(YAPX[0][1] ** 2 + YAPX[1][1] ** 2 + YAPX[2][1] ** 2)
             arrive = RC < RP
-
+    # print('step = '+str(step))
     # interpolate to where Bdown/B < 0.00002 to find cartesian coordinates at dip equator
     dot = [trace[-3], trace[-2], trace[-1]]
     lstBdown = [0., 0., 0.]
     step = 0
-    while abs(bz/bb) > 0.000002:
+    while abs(bz/bb) > delta:
         if step >= 3:
             dot1, dot2, dot3 = dot[-3], dot[-2], dot[-1]
             Ax = secDegInterpolate(lstBdown[0], lstBdown[1], lstBdown[2], dot1[0], dot2[0], dot3[0], 0.)
@@ -172,18 +204,6 @@ def traceToApex(lat, lon, alt, date=2005.):
         step += 1
     trace[-1] = dot[-1]
     return trace, sgn
-
-
-def secDegInterpolate(x1, x2, x3, y1, y2, y3, xfit):
-    """second degree interpolation used by findApex"""
-    x12 = x1-x2
-    x13 = x1-x3
-    x23 = x2-x3
-    xf1 = xfit-x1
-    xf2 = xfit-x2
-    xf3 = xfit-x3
-    yfit = (y1*x23*xf2*xf3-y2*x13*xf1*xf3+y3*x12*xf1*xf2)/(x12*x13*x23)
-    return yfit
 
 
 def qdCoordination(start, apex, northPoleLat, northPoleLon, sgn):
@@ -220,7 +240,7 @@ def qdCoordination(start, apex, northPoleLat, northPoleLon, sgn):
     return mlat, mlon
 
 
-def gd2qd(lat, lon, alt=0., date=2005.):
+def gd2qd(lat, lon, alt=0., date=2005., ds=1):
     """
     transform from geodetic to quasi-dipole coordination
     :param lat: latitude (float, deg)
@@ -230,15 +250,15 @@ def gd2qd(lat, lon, alt=0., date=2005.):
     :return mlat: magnetic latitude (float, deg)
             mlon: magnetic longitude (float, deg)
     """
-    trace, sgn = traceToApex(lat, lon, alt, date)
     nlat, nlon = northPole(date)
-    mlat, mlon = qdCoordination(trace[0], trace[-1], nlat/FACT, nlon/FACT, -sgn)
+    nlat, nlon = nlat/FACT, nlon/FACT
+    trace, sgn = traceToApex(lat, lon, alt, date, nlat, nlon, ds)
+    mlat, mlon = qdCoordination(trace[0], trace[-1], nlat, nlon, -sgn)
     return mlat, mlon
 
 
-def lineToApex(mlat, mlon, alt, date=2005.):
-    nlat, nlon = northPole(date)
-    nlat, nlon = nlat / FACT, nlon / FACT
+#qd2gd
+def lineToApex(mlat, mlon, alt, date, nlat, nlon):
     cb = np.cos(np.pi / 2 - nlat)
     sb = np.sin(np.pi / 2 - nlat)
 
@@ -252,15 +272,18 @@ def lineToApex(mlat, mlon, alt, date=2005.):
     north_a = np.pi/2 - nlat
     south_a = np.pi/2 + nlat
     alat, alon = 0., 0.
+    step = 0
     # 控制a，二分迭代找apex
-    while not arrive:
+    while not arrive and step < 500:
+        print('line' + str(step))
+        step += 1
         a = (north_a+south_a)/2
         bz, bb, alat, alon = tempB(a, ha, cb, sb, cA, sA, nlon, date)
         # print(tempB(north_a, ha, cb, sb, cA, sA, nlon, date)[0], tempB(south_a, ha, cb, sb, cA, sA, nlon, date)[0])
         # print(a*FACT, north_a*FACT, south_a*FACT, alon*FACT, bz/bb)
         # print('.')
         # print(bz, bb, bz/bb)
-        if abs(bz/bb) < 0.000002:
+        if abs(bz/bb) < delta:
             arrive = True
         else:
             if bz > 0:
@@ -286,68 +309,7 @@ def tempB(a, h, cb, sb, cA, sA, nlon, date):
     return bz, bb, lat, lon
 
 
-# def itrace_r(Y, YOLD, YAPX, YP, BX, BY, BZ, BB, SGN, DS, NSTP):
-#     YP[0][3] = SGN * BX / BB
-#     YP[1][3] = SGN * BY / BB
-#     YP[2][3] = SGN * BZ / BB
-#     D2 = DS / 2.
-#     D6 = DS / 6.
-#     D12 = DS / 12.
-#     D24 = DS / 24.
-#     if NSTP <= 7:
-#         for I in range(0, 3):
-#             if NSTP == 1:
-#                 YP[I][0] = YP[I][3]
-#                 YOLD[I] = Y[I]
-#                 YAPX[I][0] = Y[I]
-#                 Y[I] = YOLD[I] + DS * YP[I][0]
-#             elif NSTP == 2:
-#                 YP[I][1] = YP[I][3]
-#                 Y[I] = YOLD[I] + D2 * (YP[I][1] + YP[I][0])
-#             elif NSTP == 3:
-#                 Y[I] = YOLD[I] + D6 * (2. * YP[I][3] + YP[I][1] + 3. * YP[I][0])
-#             elif NSTP == 4:
-#                 YP[I][1] = YP[I][3]
-#                 YAPX[I][1] = Y[I]
-#                 YOLD[I] = Y[I]
-#                 Y[I] = YOLD[I] + D2 * (3.0 * YP[I][1] - YP[I][0])
-#             elif NSTP == 5:
-#                 Y[I] = YOLD[I] + D12 * (5. * YP[I][3] + 8. * YP[I][1] - YP[I][0])
-#             elif NSTP == 6:
-#                 YP[I][2] = YP[I][3]
-#                 YOLD[I] = Y[I]
-#                 YAPX[I][2] = Y[I]
-#                 Y[I] = YOLD[I] + D12 * (23. * YP[I][2] - 16. * YP[I][1] + 5. * YP[I][0])
-#             elif NSTP == 7:
-#                 YAPX[I][0] = YAPX[I][1]
-#                 YAPX[I][1] = YAPX[I][2]
-#                 Y[I] = YOLD[I] + D24 * (9. * YP[I][3] + 19. * YP[I][2] - 5. * YP[I][1] + YP[I][0])
-#                 YAPX[I][2] = Y[I]
-#
-#         # if NSTP == 6 or NSTP == 7:  # signal if apex passed
-#         #     RC = np.sqrt(YAPX[0][2]**2 + YAPX[1][2]**2 + YAPX[2][2]**2)
-#         #     RP = np.sqrt(YAPX[0][1]**2 + YAPX[1][1]**2 + YAPX[2][1]**2)
-#         #     if RC < RP:
-#         #         return True
-#     else:  # NSTP > 7
-#         for I in range(0, 3):
-#             YAPX[I][0] = YAPX[I][1]
-#             YAPX[I][1] = Y[I]
-#             YOLD[I] = Y[I]
-#             Y[I] = YOLD[I] + D24 * (55. * YP[I][3] - 59. * YP[I][2] + 37. * YP[I][1] - 9. * YP[I][0])
-#             YAPX[I][2] = Y[I]
-#             for J in range(0, 3):
-#                 YP[I][J] = YP[I][J + 1]
-#         # RC = np.sqrt(Y[0]**2 + Y[1]**2 + Y[2]**2)
-#         # RP = np.sqrt(YOLD[0]**2 + YOLD[1]**2 + YOLD[2]**2)
-#         # if RC < RP:
-#         #     return True
-#     # return 0
-
-
-def traceToStart(alat, alon, ha, date, sgn, hs):
-    nlat, nlon = northPole(date)
-    nlat, nlon = nlat / FACT, nlon / FACT
+def traceToStart(alat, alon, ha, date, sgn, hs, nlat, nlon, deltaH, tDS=1):
     ctp = np.cos(np.pi / 2 - nlat)
     stp = np.sin(np.pi / 2 - nlat)
 
@@ -368,10 +330,11 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
           [0., 0., 0., 0.],
           [0., 0., 0., 0.]]
 
-    while not arrive and step < 100:
-        stngml = ctp * np.sin(gclat) + stp * np.cos(gclat) * np.cos(gclon - nlon)
-        cgml2 = max(1 - stngml ** 2, 0.25)
-        DS = gcrho * 0.06 / cgml2 - 370
+    while not arrive and step < 500:
+        if tDS == 1:
+            DS = getDS(ctp, stp, gcrho, gclat, gclon, nlon)
+        else:
+            DS = getDS_old(ctp, stp, gcrho, gclat, gclon, nlon)
 
         bx, by, bz, bb = igrf12syn(0, date, 2, gcrho, gclat * FACT, gclon * FACT)
         Bx, By, Bz = rotateVector([bx, by, bz], gclon, gclat)
@@ -381,14 +344,17 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
         gclat, gclon, gcrho = cartesian2geocentric(Y[0], Y[1], Y[2])
         trace.append(Y[:])
 
-        lat, alt = geocentric2geodetic(gclat, gcrho)
-        arrive = alt < hs
+        if step >= 7:
+            lat, alt = geocentric2geodetic(gclat, gcrho)
+            arrive = alt < hs
+    # print('step_r = '+str(step))
 
     # interpolate to where h = hs to find cartesian coordinates at start point
     dot = [trace[-3], trace[-2], trace[-1]]
     h = [0., 0., 0.]
     step = 0
-    while abs(alt-hs) > 0.1:
+
+    while abs(alt-hs) > deltaH and step < 500:
         if step >= 3:
             dot1, dot2, dot3 = dot[-3], dot[-2], dot[-1]
             Ax = secDegInterpolate(h[0], h[1], h[2], dot1[0], dot2[0], dot3[0], hs)
@@ -401,20 +367,34 @@ def traceToStart(alat, alon, ha, date, sgn, hs):
         else:
             Ax, Ay, Az = dot[step]
             gclat, gclon, gcrho = cartesian2geocentric(Ax, Ay, Az)
-            lat, alt = geocentric2geodetic(gclat, gcrho)
-            h = [h[1], h[2], alt]
+            lat, talt = geocentric2geodetic(gclat, gcrho)
+            h = [h[1], h[2], talt]
         step += 1
     trace[-1] = dot[-1]
     return trace
 
 
 def qd2gd(mlat, mlon, alt=0., date=2005.):
+    nlat, nlon = northPole(date)
+    nlat, nlon = nlat / FACT, nlon / FACT
+
+    # if mlat == 0:
+    #     mlat = mlat + 0.00000001
     sgn = np.sign(mlat)
-    alat, alon, ha = lineToApex(mlat/FACT, mlon/FACT, alt, date)
+    if sgn == 0:
+        sgn = 1
+
+    alat, alon, ha = lineToApex(mlat/FACT, mlon/FACT, alt, date, nlat, nlon)
     # print(alat*FACT, alon*FACT, ha)
-    trace = traceToStart(alat, alon, ha, date, sgn, alt)
+
+    tanmlat = abs(np.tan(mlat/FACT))
+    tanmlat2 = tanmlat*tanmlat
+    deltaH = min((R+alt)*tanmlat*(1+3*tanmlat2/(1+tanmlat2))*delta, R+alt)
+    # print('dH=' + str(deltaH))
+
+    trace = traceToStart(alat, alon, ha, date, sgn, alt, nlat, nlon, deltaH)
     start = trace[-1]
     gclat, gclon, gcr = cartesian2geocentric(start[0], start[1], start[2])
     lat, alt = geocentric2geodetic(gclat, gcr)
     lon = gclon
-    return lat*FACT, lon*FACT, alt
+    return lat*FACT, lon*FACT#, alt, trace
