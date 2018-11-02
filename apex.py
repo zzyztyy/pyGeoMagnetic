@@ -259,6 +259,16 @@ def gd2qd(lat, lon, alt=0., date=2005., ds=1):
 
 #qd2gd
 def lineToApex(mlat, mlon, alt, date, nlat, nlon):
+    """
+    Find geodetic coordination of apex by magnetic coordination
+    :param mlat: magnetic latitude (float, deg)
+    :param mlon: magnetic longitude (float, deg)
+    :param alt: altitude (float, km)
+    :param date: time (float, year)
+    :param nlat: latitude of the north pole
+    :param nlon: longitude of the north pole
+    :return: latitude, longitude, altitude of apex
+    """
     cb = np.cos(np.pi / 2 - nlat)
     sb = np.sin(np.pi / 2 - nlat)
 
@@ -273,16 +283,12 @@ def lineToApex(mlat, mlon, alt, date, nlat, nlon):
     south_a = np.pi/2 + nlat
     alat, alon = 0., 0.
     step = 0
-    # 控制a，二分迭代找apex
+    # variation a, find apex by dichotomy
     while not arrive and step < 500:
         print('line' + str(step))
         step += 1
         a = (north_a+south_a)/2
         bz, bb, alat, alon = tempB(a, ha, cb, sb, cA, sA, nlon, date)
-        # print(tempB(north_a, ha, cb, sb, cA, sA, nlon, date)[0], tempB(south_a, ha, cb, sb, cA, sA, nlon, date)[0])
-        # print(a*FACT, north_a*FACT, south_a*FACT, alon*FACT, bz/bb)
-        # print('.')
-        # print(bz, bb, bz/bb)
         if abs(bz/bb) < delta:
             arrive = True
         else:
@@ -294,13 +300,27 @@ def lineToApex(mlat, mlon, alt, date, nlat, nlon):
 
 
 def tempB(a, h, cb, sb, cA, sA, nlon, date):
+    """
+    calculate temporary magnetic field used in def lineToApex
+    :param a: variation latitude (float, rad)
+    :param h: variation altitude (float, km)
+    :param cb: cos(pi/2 - north pole latitude) (float)
+    :param sb: sin(pi/2 - north pole latitude) (float)
+    :param cA: cos(pi - magnetic longitude) (float)
+    :param sA: sin(pi - magnetic longitude) (float)
+    :param nlon: north pole longitude (float, rad)
+    :param date: years (float year)
+    :return bz: downward magnetic field (float, nT)
+            bb: total magnetic field (float, nT)
+            lat: latitude for Apex point (float, rad)
+            lon: longitude for Apex point (float, rad)
+    """
     sgn = np.sign(sA)
     sa = np.sin(a)
     ca = np.cos(a)
     sB = sb*sA/sa
     cB = np.sqrt(1-sB*sB)
     cC = (sA*sB*ca*cb-cA*cB)/(1-sb*sb*sA*sA)
-    C = np.arccos(cC)*FACT
 
     lon = (sgn*np.arccos(cC) + nlon) % (2*np.pi)
     lat = np.pi/2 - a
@@ -310,6 +330,19 @@ def tempB(a, h, cb, sb, cA, sA, nlon, date):
 
 
 def traceToStart(alat, alon, ha, date, sgn, hs, nlat, nlon, deltaH, tDS=1):
+    """
+    :param alat: apex latitude (float, rad)
+    :param alon: apex longitude (float, rad)
+    :param ha: apex altitude (float, km)
+    :param date: time (float, year)
+    :param sgn: 1 for north, -1 for south
+    :param hs: altitude of start point (float, km)
+    :param nlat: latitude of north pole (float, deg)
+    :param nlon: longitude of north pole (float, deg)
+    :param deltaH: bias in altitude (float, km)
+    :param tDS: 1 for using def getDS, 0 for using def getDS_old
+    :return trace: [x, y, z] from apex to start point (list(float), km)
+    """
     ctp = np.cos(np.pi / 2 - nlat)
     stp = np.sin(np.pi / 2 - nlat)
 
@@ -347,7 +380,6 @@ def traceToStart(alat, alon, ha, date, sgn, hs, nlat, nlon, deltaH, tDS=1):
         if step >= 7:
             lat, alt = geocentric2geodetic(gclat, gcrho)
             arrive = alt < hs
-    # print('step_r = '+str(step))
 
     # interpolate to where h = hs to find cartesian coordinates at start point
     dot = [trace[-3], trace[-2], trace[-1]]
@@ -375,6 +407,14 @@ def traceToStart(alat, alon, ha, date, sgn, hs, nlat, nlon, deltaH, tDS=1):
 
 
 def qd2gd(mlat, mlon, alt=0., date=2005.):
+    """
+    :param mlat: magnetic latitude (float, deg)
+    :param mlon: magnetic longitude (float, deg)
+    :param alt: altitude (float, km)
+    :param date: time (float, year)
+    :return lat: geographic latitude (float, deg)
+            lon: geographic longitude (float, deg)
+    """
     nlat, nlon = northPole(date)
     nlat, nlon = nlat / FACT, nlon / FACT
 
@@ -397,4 +437,4 @@ def qd2gd(mlat, mlon, alt=0., date=2005.):
     gclat, gclon, gcr = cartesian2geocentric(start[0], start[1], start[2])
     lat, alt = geocentric2geodetic(gclat, gcr)
     lon = gclon
-    return lat*FACT, lon*FACT#, alt, trace
+    return lat*FACT, lon*FACT
