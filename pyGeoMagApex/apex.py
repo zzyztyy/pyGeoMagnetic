@@ -1,6 +1,6 @@
 import numpy as np
 
-from coordinate import cartesian2geocentric, geocentric2cartesian,\
+from pyGeoMagApex.coordinate import cartesian2geocentric, geocentric2cartesian,\
     geodetic2geocentric, rotateVector, geocentric2geodetic
 from pyIGRF.calculate import igrf12syn
 from pyIGRF.loadCoeffs import getCoeffs
@@ -129,13 +129,15 @@ def getDS_old(ctp, stp, gcrho, gclat, gclon, nlon):
 
 
 # gd2qd
-def traceToApex(lat, lon, alt, date, nlat, nlon, tDS):
+def traceToApex(lat, lon, alt, date, nlat, nlon, tDS=1):
     """
     Follow a geomagnetic field line until passing its apex.
-    :param lat: latitude of start position(float deg)
-    :param lon: longitude of start position(float deg)
-    :param alt: altitude of start position(float deg)
-    :param date: years(year)
+    :param lat: latitude of start position (float deg)
+    :param lon: longitude of start position (float deg)
+    :param alt: altitude of start position (float deg)
+    :param date: time (float year)
+    :param nlat: latitude of north pole (float rad)
+    :param nlon: longitude of north pole (float rad)
     :return: trace: dots of the field line(list([float, float, float]) km)
     """
     ctp = np.cos(np.pi/2-nlat)
@@ -152,9 +154,9 @@ def traceToApex(lat, lon, alt, date, nlat, nlon, tDS):
     arrive = False
     Y = [x0, y0, z0]
     YOLD = [0, 0, 0]
-    YAPX= [[0., 0., 0.],
-           [0., 0., 0.],
-           [0., 0., 0.]]
+    YAPX = [[0., 0., 0.],
+            [0., 0., 0.],
+            [0., 0., 0.]]
     YP = [[0., 0., 0., 0.],
           [0., 0., 0., 0.],
           [0., 0., 0., 0.]]
@@ -418,19 +420,15 @@ def qd2gd(mlat, mlon, alt=0., date=2005.):
     nlat, nlon = northPole(date)
     nlat, nlon = nlat / FACT, nlon / FACT
 
-    # if mlat == 0:
-    #     mlat = mlat + 0.00000001
     sgn = np.sign(mlat)
     if sgn == 0:
         sgn = 1
 
     alat, alon, ha = lineToApex(mlat/FACT, mlon/FACT, alt, date, nlat, nlon)
-    # print(alat*FACT, alon*FACT, ha)
 
     tanmlat = abs(np.tan(mlat/FACT))
     tanmlat2 = tanmlat*tanmlat
     deltaH = min((R+alt)*tanmlat*(1+3*tanmlat2/(1+tanmlat2))*delta, R+alt)
-    # print('dH=' + str(deltaH))
 
     trace = traceToStart(alat, alon, ha, date, sgn, alt, nlat, nlon, deltaH)
     start = trace[-1]

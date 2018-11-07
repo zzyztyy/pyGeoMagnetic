@@ -1,13 +1,9 @@
-from goto import with_goto
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import time
-from mpl_toolkits.basemap import Basemap
+from mpl_toolkits.mplot3d import Axes3D
 
-import apex
-import dipLat
-import coordinate
+from pyGeoMagApex import coordinate, apex, dipLat
 
 FACT = 180./np.pi
 R = 6371.2
@@ -51,7 +47,7 @@ def testApex():
         for lat in range(latS, latE, step):
             for lon in range(lonS, lonE, step):
                 print(lat+step/2, lon+step/2)
-                mlat, mlon = apex.qd2gd(lat+step/2, lon+step/2, alt)
+                mlat, mlon = apex.qd2gd(lat + step / 2, lon + step / 2, alt)
                 fout.write((str(round(mlat, 2))+' '+str(round(mlon, 2))+'#').rjust(16))
                 # print(mlat, mlon)
                 # tlat, tlon, talt, trace = apex.qd2gd(mlat, mlon, alt)
@@ -88,14 +84,14 @@ def testCoordinate():
     #         plon_list.append(plon)
     #     plt.plot(range(0, 90), gcr_list)
     # plt.show()
-    gclat, plon, gcr = coordinate.geodetic2geocentric(np.pi/2-lat/FACT, alt)
+    gclat, plon, gcr = coordinate.geodetic2geocentric(np.pi / 2 - lat / FACT, alt)
     print(90-gclat*FACT, gcr)
-    lat, alt = coordinate.geocentric2geodetic(np.pi/2-gclat, gcr)
+    lat, alt = coordinate.geocentric2geodetic(np.pi / 2 - gclat, gcr)
     print(lat*FACT, alt)
 
 
 def testTrace():
-    trace, sgn = apex.traceToApex(40, 116, 100, 2005, 77/FACT, -77/FACT)
+    trace, sgn = apex.traceToApex(40, 116, 100, 2005, 77 / FACT, -77 / FACT, 1)
     return trace
 
 
@@ -196,4 +192,5 @@ def testBias():
 
 if __name__ == '__main__':
     print('start')
-    testBias()
+    trace = testTrace()
+    draw(trace)
