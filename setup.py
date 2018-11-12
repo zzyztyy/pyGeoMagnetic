@@ -13,8 +13,8 @@ setup(
     description="Coordination transform between GeoGraphic and GeoMagnetic",
     long_description=open("README.md").read(),
     license="MIT",
-    url="https://github.com/zzyztyy/pyIGRF",
-    packages=find_packages(),
+    url="https://github.com/zzyztyy/pyGeoMagnetic",
+    packages=['pyGeoMagApex'],
     install_requires=[
         "NumPy",
         "pyIGRF"
