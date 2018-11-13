@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
 
 from pyGeoMagApex import coordinate, apex, dipLat
 
@@ -190,7 +191,44 @@ def testBias():
     plt.show()
 
 
+def testTime():
+    lat, lon, alt = [], [], []
+    x, y, z = [], [], []
+    t1, t2 = [], []
+    rate = []
+    with open("qd2gd_time.txt", 'r') as f:
+        text = f.readlines()
+        for a in text:
+            b = a.split()
+            b = [float(x) for x in b]
+            lat.append(b[0])
+            lon.append(b[1])
+            alt.append(b[2])
+            gclat, d, rho = coordinate.geodetic2geocentric(np.pi/2-b[0], b[2])
+            xt, yt, zt = coordinate.geocentric2cartesian(gclat, b[1], rho)
+            x.append(xt)
+            y.append(yt)
+            z.append(zt)
+            t1.append(b[3])
+            t2.append(b[4])
+            rate.append(b[5])
+    plt.figure(figsize=[10, 5])
+    plt.subplots_adjust(top=0.9, bottom=0.1, left=0.1, right=1.0, hspace=0.1)
+    cmap = 'jet'
+    plt.scatter(lon, lat, c=rate, cmap=cmap, alpha=0.5, vmax=0.08)
+    plt.colorbar()
+    plt.xlabel("MagLon")
+    plt.ylabel("MagLat")
+    title = "Rate_qd2gd"
+    plt.title(title)
+    plt.axis([-180, 180, -90, 90])
+    # plt.savefig(title+'.png')
+    plt.show()
+
+    # plt.scatter(rate, alt)
+    # plt.show()
+
+
 if __name__ == '__main__':
     print('start')
-    trace = testTrace()
-    draw(trace)
+    testTime()
