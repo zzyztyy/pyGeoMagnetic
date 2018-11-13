@@ -287,7 +287,7 @@ def lineToApex(mlat, mlon, alt, date, nlat, nlon):
     step = 0
     # variation a, find apex by dichotomy
     while not arrive and step < 500:
-        print('line' + str(step))
+        # print('line' + str(step))
         step += 1
         a = (north_a+south_a)/2
         bz, bb, alat, alon = tempB(a, ha, cb, sb, cA, sA, nlon, date)
