@@ -8,6 +8,7 @@ from pyGeoMagApex import coordinate, apex, dipLat
 
 FACT = 180./np.pi
 R = 6371.2
+textPath = "TextFile/"
 
 
 def sphere(center, radius, ax):
@@ -44,16 +45,18 @@ def testApex():
     lonE = 180
     alt = 100.
     step = 1
-    with open('qd2geoNew.txt', 'w') as fout:
+    with open('qd2gd_gd2qd_bias2.txt', 'a') as fout:
         for lat in range(latS, latE, step):
             for lon in range(lonS, lonE, step):
                 print(lat+step/2, lon+step/2)
-                mlat, mlon = apex.qd2gd(lat + step / 2, lon + step / 2, alt)
-                fout.write((str(round(mlat, 2))+' '+str(round(mlon, 2))+'#').rjust(16))
+                glat, glon = apex.qd2gd(lat + step / 2, lon + step / 2, alt)
+                mlat, mlon = apex.gd2qd(glat, glon, alt)
+                b = [lat + step / 2, lon + step / 2, mlat, mlon, glat, glon]
+                b = [str(round(x, 2)) for x in b]
+                fout.write(' '.join(b) + '\n')
                 # print(mlat, mlon)
                 # tlat, tlon, talt, trace = apex.qd2gd(mlat, mlon, alt)
                 # print(tlat, tlon)
-            fout.write('\n')
 
 
 def testDipLat():
@@ -122,7 +125,7 @@ def testDS():
 def testBias():
     latBin1, lonBin1 = [], []
     latBin2, lonBin2 = [], []
-    with open('qd2geo.txt', 'r') as f1:
+    with open(textPath + 'qd2geo.txt', 'r') as f1:
         text = f1.readlines()
         for a in text:
             b = a.split('#')
@@ -130,11 +133,11 @@ def testBias():
                 c = b[i]
                 lat, lon = c.split()
                 latBin1.append(float(lat))
-                lonBin1.append(float(lon)%360)
+                lonBin1.append(float(lon) % 360)
     # latBin1 = np.array(latBin1).reshape(180, 360)
     # lonBin1 = np.array(lonBin1).reshape(180, 360)
 
-    with open('qd2geoNew.txt', 'r') as f2:
+    with open(textPath + 'qd2geoNew.txt', 'r') as f2:
         text = f2.readlines()
         for a in text:
             b = a.split('#')
@@ -196,7 +199,7 @@ def testTime():
     x, y, z = [], [], []
     t1, t2 = [], []
     rate = []
-    with open("qd2gd_time.txt", 'r') as f:
+    with open(textPath + "qd2gd_time.txt", 'r') as f:
         text = f.readlines()
         for a in text:
             b = a.split()
@@ -229,6 +232,60 @@ def testTime():
     # plt.show()
 
 
+def testConsist():
+    tlat = []
+    tlon = []
+    mlat = []
+    mlon = []
+    with open(textPath + "qd2gd_gd2qd_bias2.txt", 'r') as f:
+        text = f.readlines()
+        for a in text:
+            b = a.split()
+            b = [float(x) for x in b]
+            mlat.append(b[0])
+            mlon.append(b[1])
+            tlat.append(b[2]-b[0])
+            dlon = b[3] - b[1]
+            if dlon > 180:
+                dlon -= 360
+            elif dlon < -180:
+                dlon += 360
+            tlon.append(dlon)
+    latBia = np.array(tlat).reshape(180, 360)
+    lonBia = np.array(tlon).reshape(180, 360)
+
+    plt.figure(figsize=[8, 8])
+    plt.subplots_adjust(top=0.98, bottom=0.03, left=0.1, right=1.0, hspace=0.1)
+    cmap = 'bwr'
+    latMax = 0.1
+    lonMax = 0.1
+    fontsize = 14
+    plt.subplot(2, 1, 1)
+    # m = Basemap()
+    # m.drawcoastlines()
+    plt.title('LatConsist', fontsize=fontsize)
+    # plt.imshow(latBia, cmap=cmap, vmax=latMax, vmin=-latMax)
+    plt.pcolor(range(-180, 181), range(-90, 90), latBia, cmap=cmap, vmax=latMax, vmin=-latMax)
+    plt.colorbar()
+    plt.xticks(range(-180, 181, 30), fontsize=fontsize)
+    plt.yticks(range(-90, 91, 30), fontsize=fontsize)
+    plt.xlabel('MagLon', fontsize=fontsize)
+    plt.ylabel('MagLat', fontsize=fontsize)
+
+    plt.subplot(2, 1, 2)
+    plt.title('LonBia', fontsize=fontsize)
+    # m = Basemap()
+    # m.drawcoastlines()
+    plt.title('LonConsist', fontsize=fontsize)
+    plt.pcolor(range(-180, 181), range(-90, 90), lonBia, cmap=cmap, vmax=lonMax, vmin=-lonMax)
+    plt.colorbar()
+    plt.xticks(range(-180, 181, 30), fontsize=fontsize)
+    plt.yticks(range(-90, 91, 30), fontsize=fontsize)
+    plt.xlabel('MagLon', fontsize=fontsize)
+    plt.ylabel('MagLat', fontsize=fontsize)
+    plt.show()
+
+
 if __name__ == '__main__':
     print('start')
-    testTime()
+    testConsist()
