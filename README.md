@@ -19,6 +19,6 @@ mlat, mlon = pgma.gd2qd(lat=20.2, lon=103.1, alt=100, date=2006.)
 ****
 ## Apex Model and Modified Apex Model
 This package is refer to [Magnetic-Apex and Quasi-Dipole coordinate][apex]. This paper give some Fortran file about two models called Apex model and modified Apex model which includes too many functions and complex math and physics. So in this package, we change the structure but keep the mathematic method but only for Apex model.
-Modified Apex model is too difficult but fast. We will do it next setp*(Maybe)*.
+Modified Apex model is too difficult but fast. We will do it next setp *(Maybe)*.
 
 [apex]: https://doi.org/10.1029/2010JA015326
