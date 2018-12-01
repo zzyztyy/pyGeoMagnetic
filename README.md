@@ -1,6 +1,6 @@
 # pyGeoMagnetic
 This is a Python program about geomagnetic field based on IGRF (International Geomagnetic Reference Field) and Apex model. It can transform coordinate between GeoGraphical and GeoMagnetic.  
-The source code Apex model come from Fortran file. In this package, we reform them by using Python. Although Python can translate Fortran by `pyf` module, it needs Fortran compiler. This package can run without Fortran compiler.  
+The source code Apex model come from Fortran file. In this package, we reform them by using Python. Although Python can translate Fortran by `pyf` module, it needs Fortran compiler. This package can run __without Fortran compiler__.  
 ****
 ## How to use it?  
 Download latest released version and unzip it. Then Install (requires NumPy and pyIGRF before installation):
